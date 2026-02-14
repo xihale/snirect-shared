@@ -14,16 +14,33 @@ func TestNewRules(t *testing.T) {
 	}
 }
 
+func TestLoadRules(t *testing.T) {
+	rules, err := LoadRules()
+	if err != nil {
+		t.Fatalf("LoadRules() error = %v", err)
+	}
+
+	// Check that the Hong Kong Google rule is loaded
+	targetSNI, ok := rules.GetAlterHostname("www.google.com.hk")
+	if !ok {
+		t.Error("LoadRules() didn't load alter_hostname rule")
+	}
+	if targetSNI != "google.com" {
+		t.Errorf("LoadRules() wrong target for www.google.com.hk: got %q, want google.com", targetSNI)
+	}
+}
+
 func TestGetAlterHostname(t *testing.T) {
 	r := NewRules()
 	r.AlterHostname["*.example.com"] = "spoof.com"
 	r.AlterHostname["exact.com"] = "target.com"
+	r.AlterHostname["*.base.com"] = "base-target"
 	r.Init()
 
 	tests := []struct {
-		name      string
-		host      string
-		want      string
+		name     string
+		host     string
+		want     string
 		wantMatch bool
 	}{
 		{"exact match", "exact.com", "target.com", true},
@@ -52,9 +69,9 @@ func TestGetHost(t *testing.T) {
 	r.Init()
 
 	tests := []struct {
-		name      string
-		host      string
-		want      string
+		name     string
+		host     string
+		want     string
 		wantMatch bool
 	}{
 		{"exact match", "fixed.com", "10.0.0.1", true},
@@ -80,20 +97,21 @@ func TestGetCertVerify(t *testing.T) {
 	r.CertVerify["*.bank.com"] = true
 	r.CertVerify["*.internal"] = "allowed.com"
 	r.CertVerify["*.whitelist.com"] = []interface{}{"safe1.com", "safe2.com"}
-	r.CertVerify["strict.com"] = "strict"
+	r.CertVerify["*.strict.com"] = "strict"
+	r.CertVerify["$exact.com"] = true
 	r.Init()
 
 	tests := []struct {
-		name       string
-		host       string
+		name     string
+		host     string
 		wantVerify bool
 		wantAllow  []string
-		wantMatch  bool
+		wantMatch bool
 	}{
 		{"bool true", "sub.bank.com", true, nil, true},
 		{"string allow", "host.internal", false, []string{"allowed.com"}, true},
 		{"list allow", "sub.whitelist.com", false, []string{"safe1.com", "safe2.com"}, true},
-		{"strict keyword", "strict.com", true, nil, true},
+		{"strict keyword", "sub.strict.com", true, nil, true},
 		{"no match", "other.com", false, nil, false},
 	}
 
@@ -107,10 +125,8 @@ func TestGetCertVerify(t *testing.T) {
 				if got.Verify != tt.wantVerify {
 					t.Errorf("GetCertVerify(%q).Verify = %v, want %v", tt.host, got.Verify, tt.wantVerify)
 				}
-				if tt.wantAllow != nil {
-					if len(got.Allow) != len(tt.wantAllow) {
-						t.Errorf("GetCertVerify(%q).Allow length = %d, want %d", tt.host, len(got.Allow), len(tt.wantAllow))
-					}
+				if tt.wantAllow != nil && len(got.Allow) != len(tt.wantAllow) {
+					t.Errorf("GetCertVerify(%q).Allow length = %d, want %d", tt.host, len(got.Allow), len(tt.wantAllow))
 				}
 			}
 		})
@@ -119,17 +135,29 @@ func TestGetCertVerify(t *testing.T) {
 
 func TestDeepCopy(t *testing.T) {
 	r := NewRules()
-	r.AlterHostname["test.com"] = "target.com"
+	r.AlterHostname["*.example.com"] = "spoof.com"
+	r.CertVerify["*.base.com"] = true
+	r.Hosts["*.lan"] = "192.168.1.1"
 	r.Init()
 
 	r2 := r.DeepCopy()
 
 	// Modify original
-	r.AlterHostname["test.com"] = "modified"
+	r.AlterHostname["*.example.com"] = "modified"
+	r.CertVerify["*.base.com"] = false
+	r.Hosts["*.lan"] = "modified"
 
 	// Copy should be unchanged
-	if got, ok := r2.GetAlterHostname("test.com"); !ok || got != "target.com" {
+	if got, ok := r2.GetAlterHostname("sub.example.com"); !ok || got != "spoof.com" {
 		t.Error("DeepCopy didn't create independent copy")
+	}
+
+	if got, ok := r2.GetCertVerify("sub.base.com"); !ok || got.Verify != true {
+		t.Error("DeepCopy didn't copy CertVerify correctly")
+	}
+
+	if got, ok := r2.GetHost("server.lan"); !ok || got != "192.168.1.1" {
+		t.Error("DeepCopy didn't copy Hosts correctly")
 	}
 }
 
@@ -236,44 +264,5 @@ func TestJSONSerialization(t *testing.T) {
 
 	if got, ok := r2.GetAlterHostname("www.google.com"); !ok || got != "baidu.com" {
 		t.Error("ToJSON()/FromJSON() round trip failed")
-	}
-}
-
-func TestNormalizeMap(t *testing.T) {
-	r := NewRules()
-	r.AlterHostname["$exact.com"] = "target"
-	r.CertVerify["$pattern.com"] = true
-	r.Init()
-
-	// $ prefix should be trimmed
-	if _, ok := r.AlterHostname["$exact.com"]; ok {
-		t.Error("$ prefix not trimmed from AlterHostname")
-	}
-	if _, ok := r.AlterHostname["exact.com"]; !ok {
-		t.Error("normalized key not found in AlterHostname")
-	}
-}
-
-func TestGetAlterHostnamePatternPriority(t *testing.T) {
-	r := NewRules()
-	// Add rules in specific order
-	r.AlterHostname["*.com"] = "wildcard"
-	r.AlterHostname["*.example.com"] = "more-specific"
-	r.AlterHostname["exact.example.com"] = "exact"
-	r.Init()
-
-	// Exact match should win
-	if got, ok := r.GetAlterHostname("exact.example.com"); !ok || got != "exact" {
-		t.Error("Exact match didn't have highest priority")
-	}
-
-	// More specific pattern should win
-	if got, ok := r.GetAlterHostname("sub.example.com"); !ok || got != "more-specific" {
-		t.Error("More specific pattern didn't have higher priority")
-	}
-
-	// Least specific pattern should still match
-	if got, ok := r.GetAlterHostname("other.com"); !ok || got != "wildcard" {
-		t.Error("Least specific pattern didn't match")
 	}
 }

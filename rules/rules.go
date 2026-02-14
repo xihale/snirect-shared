@@ -7,6 +7,16 @@ import (
 	"github.com/xihale/snirect-shared/pattern"
 )
 
+// LoadRules loads rules from embedded TOML file.
+func LoadRules() (*Rules, error) {
+	rules := NewRules()
+	if err := rules.FromTOML([]byte(DefaultRulesTOML)); err != nil {
+		return nil, err
+	}
+	// FromTOML already calls Init internally
+	return rules, nil
+}
+
 // CertPolicy represents a certificate verification policy.
 type CertPolicy struct {
 	Verify bool     // Whether to verify hostname
