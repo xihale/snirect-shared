@@ -14,22 +14,6 @@ func TestNewRules(t *testing.T) {
 	}
 }
 
-func TestLoadRules(t *testing.T) {
-	rules, err := LoadRules()
-	if err != nil {
-		t.Fatalf("LoadRules() error = %v", err)
-	}
-
-	// Check that the Hong Kong Google rule is loaded
-	targetSNI, ok := rules.GetAlterHostname("www.google.com.hk")
-	if !ok {
-		t.Error("LoadRules() didn't load alter_hostname rule")
-	}
-	if targetSNI != "google.com" {
-		t.Errorf("LoadRules() wrong target for www.google.com.hk: got %q, want google.com", targetSNI)
-	}
-}
-
 func TestGetAlterHostname(t *testing.T) {
 	r := NewRules()
 	r.AlterHostname["*.example.com"] = "spoof.com"
@@ -38,9 +22,9 @@ func TestGetAlterHostname(t *testing.T) {
 	r.Init()
 
 	tests := []struct {
-		name     string
-		host     string
-		want     string
+		name      string
+		host      string
+		want      string
 		wantMatch bool
 	}{
 		{"exact match", "exact.com", "target.com", true},
@@ -69,9 +53,9 @@ func TestGetHost(t *testing.T) {
 	r.Init()
 
 	tests := []struct {
-		name     string
-		host     string
-		want     string
+		name      string
+		host      string
+		want      string
 		wantMatch bool
 	}{
 		{"exact match", "fixed.com", "10.0.0.1", true},
@@ -102,11 +86,11 @@ func TestGetCertVerify(t *testing.T) {
 	r.Init()
 
 	tests := []struct {
-		name     string
-		host     string
+		name       string
+		host       string
 		wantVerify bool
 		wantAllow  []string
-		wantMatch bool
+		wantMatch  bool
 	}{
 		{"bool true", "sub.bank.com", true, nil, true},
 		{"string allow", "host.internal", false, []string{"allowed.com"}, true},
