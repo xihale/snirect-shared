@@ -7,13 +7,32 @@ import (
 	"github.com/xihale/snirect-shared/pattern"
 )
 
-// LoadRules loads rules from embedded TOML file.
+// LoadRules loads rules from embedded TOML file (fetched rules only).
 func LoadRules() (*Rules, error) {
 	rules := NewRules()
-	if err := rules.FromTOML([]byte(DefaultRulesTOML)); err != nil {
+	if err := rules.FromTOML([]byte(FetchedRulesTOML)); err != nil {
 		return nil, err
 	}
 	// FromTOML already calls Init internally
+	return rules, nil
+}
+
+// LoadDefaultRules loads merged rules (fetched + user template).
+func LoadDefaultRules() (*Rules, error) {
+	rules := NewRules()
+
+	// First load fetched rules
+	if err := rules.FromTOML([]byte(FetchedRulesTOML)); err != nil {
+		return nil, err
+	}
+
+	// Then merge user rules (user rules take precedence)
+	userRules := NewRules()
+	if err := userRules.FromTOML([]byte(UserRulesTOML)); err != nil {
+		return nil, err
+	}
+	rules.Merge(userRules)
+
 	return rules, nil
 }
 
