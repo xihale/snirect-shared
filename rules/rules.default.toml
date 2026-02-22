@@ -1,0 +1,21 @@
+[alter_hostname]
+"*.google.com.hk" = "g.cn"
+
+[cert_verify]
+"*google.com" = "healthdatanexus.ai"
+"gemini.google.com" = false
+"*gstatic.com" = "healthdatanexus.ai"
+"*youtube.com" = "healthdatanexus.ai"
+"*ytimg.com" = "healthdatanexus.ai"
+"youtu.be" = ["*.api.dev.healthdatanexus.ai"]
+"mega.io" = ["*.static.mega.co.nz", "static.mega.co.nz"]
+"*ggpht.com" = "healthdatanexus.ai"
+"www.redditstatic.com" = ["*.reddit.com", "reddit.com"]
+"*.redd.it" = ["*.reddit.com", "reddit.com"]
+"*.redditmedia.com" = ["*.reddit.com", "reddit.com"]
+"*.objects-origin.githubusercontent.com" = ["*.actions.githubusercontent.com", "actions.githubusercontent.com"]
+"telegram.me" = ["*.telegram.org", "telegram.org"]
+
+[hosts]
+"store.steampowered.com" = "__AUTO__"
+"$*.google.com.hk" = "34.49.133.3"

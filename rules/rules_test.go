@@ -250,3 +250,20 @@ func TestJSONSerialization(t *testing.T) {
 		t.Error("ToJSON()/FromJSON() round trip failed")
 	}
 }
+
+func TestLoadDefaultRules_IncludesBuiltInDefaults(t *testing.T) {
+	r, err := LoadDefaultRules()
+	if err != nil {
+		t.Fatalf("LoadDefaultRules() error = %v", err)
+	}
+
+	// This rule lives in rules.default.toml and should be loaded as built-in default.
+	if got, ok := r.GetAlterHostname("www.google.com.hk"); !ok || got != "g.cn" {
+		t.Fatalf("built-in default alter_hostname not loaded: got=%q, matched=%v", got, ok)
+	}
+
+	// This rule also lives in rules.default.toml and should be available.
+	if got, ok := r.GetHost("store.steampowered.com"); !ok || got != "__AUTO__" {
+		t.Fatalf("built-in default hosts not loaded: got=%q, matched=%v", got, ok)
+	}
+}

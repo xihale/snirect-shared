@@ -17,7 +17,7 @@ func LoadRules() (*Rules, error) {
 	return rules, nil
 }
 
-// LoadDefaultRules loads merged rules (fetched + user template).
+// LoadDefaultRules loads merged rules (fetched + built-in defaults + user template).
 func LoadDefaultRules() (*Rules, error) {
 	rules := NewRules()
 
@@ -26,7 +26,14 @@ func LoadDefaultRules() (*Rules, error) {
 		return nil, err
 	}
 
-	// Then merge user rules (user rules take precedence)
+	// Then merge built-in defaults (built-in defaults take precedence over fetched rules)
+	defaultRules := NewRules()
+	if err := defaultRules.FromTOML([]byte(DefaultRulesTOML)); err != nil {
+		return nil, err
+	}
+	rules.Merge(defaultRules)
+
+	// Finally merge user template/custom rules (highest precedence)
 	userRules := NewRules()
 	if err := userRules.FromTOML([]byte(UserRulesTOML)); err != nil {
 		return nil, err
