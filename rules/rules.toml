@@ -53,6 +53,7 @@
 "*youtube.com" = "healthdatanexus.ai"
 "*ytimg.com" = "healthdatanexus.ai"
 "youtu.be" = ["*.api.dev.healthdatanexus.ai"]
+"mega.io" = ["*.static.mega.co.nz", "static.mega.co.nz"]
 
 "*ggpht.com" = "healthdatanexus.ai"
 "www.redditstatic.com" = ["*.reddit.com", "reddit.com"]
