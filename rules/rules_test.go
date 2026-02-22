@@ -251,10 +251,10 @@ func TestJSONSerialization(t *testing.T) {
 	}
 }
 
-func TestLoadDefaultRules_IncludesBuiltInDefaults(t *testing.T) {
-	r, err := LoadDefaultRules()
+func TestLoadRules_IncludesBuiltInDefaults(t *testing.T) {
+	r, err := LoadRules()
 	if err != nil {
-		t.Fatalf("LoadDefaultRules() error = %v", err)
+		t.Fatalf("LoadRules() error = %v", err)
 	}
 
 	// This rule lives in rules.default.toml and should be loaded as built-in default.
@@ -265,5 +265,42 @@ func TestLoadDefaultRules_IncludesBuiltInDefaults(t *testing.T) {
 	// This rule also lives in rules.default.toml and should be available.
 	if got, ok := r.GetHost("store.steampowered.com"); !ok || got != "__AUTO__" {
 		t.Fatalf("built-in default hosts not loaded: got=%q, matched=%v", got, ok)
+	}
+}
+
+func TestLoadFetchedRules_ExcludesBuiltInDefaults(t *testing.T) {
+	r, err := LoadFetchedRules()
+	if err != nil {
+		t.Fatalf("LoadFetchedRules() error = %v", err)
+	}
+
+	if _, ok := r.GetAlterHostname("www.google.com.hk"); ok {
+		t.Fatalf("fetched-only rules should not contain built-in default alter_hostname")
+	}
+}
+
+func TestApplyOverrides_AutoMarkerDeletes(t *testing.T) {
+	base := NewRules()
+	base.AlterHostname["example.com"] = "target.com"
+	base.CertVerify["example.com"] = true
+	base.Hosts["example.com"] = "1.1.1.1"
+	base.Init()
+
+	override := NewRules()
+	override.AlterHostname["example.com"] = DefaultAutoMarker
+	override.CertVerify["example.com"] = DefaultAutoMarker
+	override.Hosts["example.com"] = DefaultAutoMarker
+	override.Init()
+
+	ApplyOverrides(base, override, DefaultAutoMarker)
+
+	if _, ok := base.GetAlterHostname("example.com"); ok {
+		t.Fatalf("alter_hostname should be removed by auto marker")
+	}
+	if _, ok := base.GetCertVerify("example.com"); ok {
+		t.Fatalf("cert_verify should be removed by auto marker")
+	}
+	if _, ok := base.GetHost("example.com"); ok {
+		t.Fatalf("hosts should be removed by auto marker")
 	}
 }

@@ -7,40 +7,95 @@ import (
 	"github.com/xihale/snirect-shared/pattern"
 )
 
-// LoadRules loads rules from embedded TOML file (fetched rules only).
+const DefaultAutoMarker = "__AUTO__"
+
+// LoadRules loads merged rules (fetched + built-in defaults + user template).
 func LoadRules() (*Rules, error) {
+	return loadRules(true)
+}
+
+// LoadFetchedRules loads rules from embedded fetched TOML only.
+func LoadFetchedRules() (*Rules, error) {
+	return loadRules(false)
+}
+
+func loadRules(includeDefaults bool) (*Rules, error) {
 	rules := NewRules()
 	if err := rules.FromTOML([]byte(FetchedRulesTOML)); err != nil {
 		return nil, err
 	}
-	// FromTOML already calls Init internally
+
+	if includeDefaults {
+		// Built-in defaults override fetched rules.
+		defaultRules := NewRules()
+		if err := defaultRules.FromTOML([]byte(DefaultRulesTOML)); err != nil {
+			return nil, err
+		}
+		rules.Merge(defaultRules)
+
+		// User template has highest precedence among embedded defaults.
+		userRules := NewRules()
+		if err := userRules.FromTOML([]byte(UserRulesTOML)); err != nil {
+			return nil, err
+		}
+		rules.Merge(userRules)
+	}
+
+	// FromTOML/Merge already call Init internally.
 	return rules, nil
 }
 
-// LoadDefaultRules loads merged rules (fetched + built-in defaults + user template).
+// LoadDefaultRules is kept for backward compatibility.
+// Deprecated: use LoadRules instead.
 func LoadDefaultRules() (*Rules, error) {
-	rules := NewRules()
+	return LoadRules()
+}
 
-	// First load fetched rules
-	if err := rules.FromTOML([]byte(FetchedRulesTOML)); err != nil {
-		return nil, err
+// ApplyOverrides merges user overrides into base rules.
+// When a value equals autoMarker, the corresponding base key is removed.
+func ApplyOverrides(base, override *Rules, autoMarker string) {
+	if base == nil || override == nil {
+		return
+	}
+	if autoMarker == "" {
+		autoMarker = DefaultAutoMarker
 	}
 
-	// Then merge built-in defaults (built-in defaults take precedence over fetched rules)
-	defaultRules := NewRules()
-	if err := defaultRules.FromTOML([]byte(DefaultRulesTOML)); err != nil {
-		return nil, err
+	if base.Hosts == nil {
+		base.Hosts = make(map[string]string)
 	}
-	rules.Merge(defaultRules)
-
-	// Finally merge user template/custom rules (highest precedence)
-	userRules := NewRules()
-	if err := userRules.FromTOML([]byte(UserRulesTOML)); err != nil {
-		return nil, err
+	if base.AlterHostname == nil {
+		base.AlterHostname = make(map[string]string)
 	}
-	rules.Merge(userRules)
+	if base.CertVerify == nil {
+		base.CertVerify = make(map[string]interface{})
+	}
 
-	return rules, nil
+	for k, v := range override.AlterHostname {
+		if v == autoMarker {
+			delete(base.AlterHostname, k)
+		} else {
+			base.AlterHostname[k] = v
+		}
+	}
+
+	for k, v := range override.CertVerify {
+		if marker, ok := v.(string); ok && marker == autoMarker {
+			delete(base.CertVerify, k)
+		} else {
+			base.CertVerify[k] = v
+		}
+	}
+
+	for k, v := range override.Hosts {
+		if v == autoMarker {
+			delete(base.Hosts, k)
+		} else {
+			base.Hosts[k] = v
+		}
+	}
+
+	base.Init()
 }
 
 // CertPolicy represents a certificate verification policy.
