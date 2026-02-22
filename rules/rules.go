@@ -75,6 +75,17 @@ func (r *Rules) Init() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// Ensure maps are non-nil to avoid panics
+	if r.AlterHostname == nil {
+		r.AlterHostname = make(map[string]string)
+	}
+	if r.CertVerify == nil {
+		r.CertVerify = make(map[string]interface{})
+	}
+	if r.Hosts == nil {
+		r.Hosts = make(map[string]string)
+	}
+
 	r.AlterHostname = normalizeMap(r.AlterHostname)
 	r.CertVerify = normalizeMap(r.CertVerify)
 	r.Hosts = normalizeMap(r.Hosts)
@@ -215,6 +226,17 @@ func (r *Rules) Merge(other *Rules) {
 
 	other.mu.RLock()
 	defer other.mu.RUnlock()
+
+	// Ensure receiver maps are initialized to avoid nil map panic
+	if r.AlterHostname == nil {
+		r.AlterHostname = make(map[string]string)
+	}
+	if r.CertVerify == nil {
+		r.CertVerify = make(map[string]interface{})
+	}
+	if r.Hosts == nil {
+		r.Hosts = make(map[string]string)
+	}
 
 	for k, v := range other.AlterHostname {
 		r.AlterHostname[k] = v

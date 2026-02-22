@@ -52,11 +52,14 @@
 "*gstatic.com" = "healthdatanexus.ai"
 "*youtube.com" = "healthdatanexus.ai"
 "*ytimg.com" = "healthdatanexus.ai"
+"youtu.be" = ["*.api.dev.healthdatanexus.ai"]
+
 "*ggpht.com" = "healthdatanexus.ai"
 "www.redditstatic.com" = ["*.reddit.com", "reddit.com"]
 "*.redd.it" = ["*.reddit.com", "reddit.com"]
 "*.redditmedia.com" = ["*.reddit.com", "reddit.com"]
 "*.objects-origin.githubusercontent.com" = ["*.actions.githubusercontent.com", "actions.githubusercontent.com"]
+"telegram.me" = ["*.telegram.org", "telegram.org"]
 
 
   # [Static Hosts Mapping]

@@ -21,9 +21,16 @@ func (r *Rules) FromTOML(data []byte) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.AlterHostname = tomlRules.AlterHostname
-	r.CertVerify = tomlRules.CertVerify
-	r.Hosts = tomlRules.Hosts
+	// Only overwrite maps if the TOML provided them; preserve existing non-nil maps
+	if tomlRules.AlterHostname != nil {
+		r.AlterHostname = tomlRules.AlterHostname
+	}
+	if tomlRules.CertVerify != nil {
+		r.CertVerify = tomlRules.CertVerify
+	}
+	if tomlRules.Hosts != nil {
+		r.Hosts = tomlRules.Hosts
+	}
 
 	// Call Init logic inline to avoid deadlock (r.mu is already held)
 	r.AlterHostname = normalizeMap(r.AlterHostname)
