@@ -3,10 +3,25 @@
 
 [cert_verify]
 "*google.com" = "healthdatanexus.ai"
+"android.com" = ["*.api.dev.healthdatanexus.ai"]
+"ask.vrchat.com" = ["*.discourse.org"]
+"blogger.com" = ["*.api.dev.healthdatanexus.ai"]
+"business.whatsapp.com" = ["*.facebook.com", "*.facebook.net", "*.fbcdn.net", "*.fbsbx.com", "*.m.facebook.com", "*.messenger.com", "*.xx.fbcdn.net", "*.xy.fbcdn.net", "*.xz.fbcdn.net", "facebook.com", "messenger.com"]
+"docs.github.com" = ["*.githubassets.com", "githubassets.com"]
 "gemini.google.com" = false
+"ig.me" = ["*.instagram.com", "*.cdninstagram.com", "*.igsonar.com", "cdninstagram.com", "igsonar.com", "instagram.com"]
+"instagr.am" = ["*.instagram.com", "*.cdninstagram.com", "*.igsonar.com", "cdninstagram.com", "igsonar.com", "instagram.com"]
 "*gstatic.com" = "healthdatanexus.ai"
+"redditstatic.com" = ["*.reddit.com", "reddit.com"]
+"scratch.mit.edu" = ["d.sni-645-default.ssl.fastly.net"]
+"sukebei.nyaa.si" = false
+"t.me" = ["*.telegram.org", "telegram.org"]
+"telesco.pe" = ["*.telegram.org", "telegram.org"]
+"tg.dev" = ["*.telegram.org", "telegram.org"]
 "*youtube.com" = "healthdatanexus.ai"
+"youtube-nocookie.com" = ["*.api.dev.healthdatanexus.ai"]
 "*ytimg.com" = "healthdatanexus.ai"
+"xnxx.com" = ["*.xvideos.com", "xvideos.com"]
 "youtu.be" = ["*.api.dev.healthdatanexus.ai"]
 "mega.io" = ["*.static.mega.co.nz", "static.mega.co.nz"]
 "*ggpht.com" = "healthdatanexus.ai"
