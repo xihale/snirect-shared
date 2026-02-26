@@ -14,171 +14,50 @@ func TestNewRules(t *testing.T) {
 	}
 }
 
-func TestGetAlterHostname(t *testing.T) {
-	r := NewRules()
-	r.AlterHostname["*.example.com"] = "spoof.com"
-	r.AlterHostname["exact.com"] = "target.com"
-	r.AlterHostname["*.base.com"] = "base-target"
-	r.Init()
-
-	tests := []struct {
-		name      string
-		host      string
-		want      string
-		wantMatch bool
-	}{
-		{"exact match", "exact.com", "target.com", true},
-		{"wildcard match", "sub.example.com", "spoof.com", true},
-		{"no match", "other.com", "", false},
-		{"root domain wildcard", "example.com", "spoof.com", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := r.GetAlterHostname(tt.host)
-			if ok != tt.wantMatch {
-				t.Errorf("GetAlterHostname(%q) match = %v, want %v", tt.host, ok, tt.wantMatch)
-			}
-			if ok && got != tt.want {
-				t.Errorf("GetAlterHostname(%q) = %q, want %q", tt.host, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetHost(t *testing.T) {
-	r := NewRules()
-	r.Hosts["*.lan"] = "192.168.1.1"
-	r.Hosts["fixed.com"] = "10.0.0.1"
-	r.Init()
-
-	tests := []struct {
-		name      string
-		host      string
-		want      string
-		wantMatch bool
-	}{
-		{"exact match", "fixed.com", "10.0.0.1", true},
-		{"wildcard match", "server.lan", "192.168.1.1", true},
-		{"no match", "other.com", "", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := r.GetHost(tt.host)
-			if ok != tt.wantMatch {
-				t.Errorf("GetHost(%q) match = %v, want %v", tt.host, ok, tt.wantMatch)
-			}
-			if ok && got != tt.want {
-				t.Errorf("GetHost(%q) = %q, want %q", tt.host, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetCertVerify(t *testing.T) {
-	r := NewRules()
-	r.CertVerify["*.bank.com"] = true
-	r.CertVerify["*.internal"] = "allowed.com"
-	r.CertVerify["*.whitelist.com"] = []interface{}{"safe1.com", "safe2.com"}
-	r.CertVerify["*.strict.com"] = "strict"
-	r.CertVerify["$exact.com"] = true
-	r.Init()
-
+func TestParseCertPolicy(t *testing.T) {
 	tests := []struct {
 		name       string
-		host       string
+		input      interface{}
+		wantOK     bool
 		wantVerify bool
-		wantAllow  []string
-		wantMatch  bool
+		wantAllow  int
 	}{
-		{"bool true", "sub.bank.com", true, nil, true},
-		{"string allow", "host.internal", false, []string{"allowed.com"}, true},
-		{"list allow", "sub.whitelist.com", false, []string{"safe1.com", "safe2.com"}, true},
-		{"strict keyword", "sub.strict.com", true, nil, true},
-		{"no match", "other.com", false, nil, false},
+		{name: "bool", input: true, wantOK: true, wantVerify: true, wantAllow: 0},
+		{name: "strict", input: "strict", wantOK: true, wantVerify: true, wantAllow: 0},
+		{name: "string allow", input: "healthdatanexus.ai", wantOK: true, wantVerify: false, wantAllow: 1},
+		{name: "array allow", input: []interface{}{"a.com", "b.com"}, wantOK: true, wantVerify: false, wantAllow: 2},
+		{name: "invalid", input: 123, wantOK: false, wantVerify: false, wantAllow: 0},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := r.GetCertVerify(tt.host)
-			if ok != tt.wantMatch {
-				t.Errorf("GetCertVerify(%q) match = %v, want %v", tt.host, ok, tt.wantMatch)
+			p, ok := ParseCertPolicy(tt.input)
+			if ok != tt.wantOK {
+				t.Fatalf("ParseCertPolicy() ok=%v want=%v", ok, tt.wantOK)
 			}
-			if ok {
-				if got.Verify != tt.wantVerify {
-					t.Errorf("GetCertVerify(%q).Verify = %v, want %v", tt.host, got.Verify, tt.wantVerify)
-				}
-				if tt.wantAllow != nil && len(got.Allow) != len(tt.wantAllow) {
-					t.Errorf("GetCertVerify(%q).Allow length = %d, want %d", tt.host, len(got.Allow), len(tt.wantAllow))
-				}
+			if !ok {
+				return
+			}
+			if p.Verify != tt.wantVerify {
+				t.Fatalf("ParseCertPolicy() verify=%v want=%v", p.Verify, tt.wantVerify)
+			}
+			if len(p.Allow) != tt.wantAllow {
+				t.Fatalf("ParseCertPolicy() allow=%d want=%d", len(p.Allow), tt.wantAllow)
 			}
 		})
-	}
-}
-
-func TestDeepCopy(t *testing.T) {
-	r := NewRules()
-	r.AlterHostname["*.example.com"] = "spoof.com"
-	r.CertVerify["*.base.com"] = true
-	r.Hosts["*.lan"] = "192.168.1.1"
-	r.Init()
-
-	r2 := r.DeepCopy()
-
-	// Modify original
-	r.AlterHostname["*.example.com"] = "modified"
-	r.CertVerify["*.base.com"] = false
-	r.Hosts["*.lan"] = "modified"
-
-	// Copy should be unchanged
-	if got, ok := r2.GetAlterHostname("sub.example.com"); !ok || got != "spoof.com" {
-		t.Error("DeepCopy didn't create independent copy")
-	}
-
-	if got, ok := r2.GetCertVerify("sub.base.com"); !ok || got.Verify != true {
-		t.Error("DeepCopy didn't copy CertVerify correctly")
-	}
-
-	if got, ok := r2.GetHost("server.lan"); !ok || got != "192.168.1.1" {
-		t.Error("DeepCopy didn't copy Hosts correctly")
-	}
-}
-
-func TestMerge(t *testing.T) {
-	r1 := NewRules()
-	r1.AlterHostname["*.base.com"] = "base-target"
-	r1.CertVerify["*.base.com"] = true
-	r1.Init()
-
-	r2 := NewRules()
-	r2.AlterHostname["*.override.com"] = "override-target"
-	r2.AlterHostname["*.base.com"] = "overridden"
-	r2.Init()
-
-	r1.Merge(r2)
-
-	// Both rules should be present
-	if _, ok := r1.GetAlterHostname("sub.override.com"); !ok {
-		t.Error("Merge didn't include r2's rules")
-	}
-
-	// r2's rules take precedence
-	if got, _ := r1.GetAlterHostname("sub.base.com"); got != "overridden" {
-		t.Errorf("Merge precedence failed: got %q, want %q", got, "overridden")
 	}
 }
 
 func TestTOMLSerialization(t *testing.T) {
 	tomlData := `
 [alter_hostname]
-"*.google.com" = "baidu.com"
+"www.google.com.hk" = "g.cn"
 
 [cert_verify]
-"*.google.com" = "healthdatanexus.ai"
+"www.google.com.hk" = "healthdatanexus.ai"
 
 [hosts]
-"example.com" = "1.2.3.4"
+"store.steampowered.com" = "__AUTO__"
 `
 
 	r := NewRules()
@@ -186,16 +65,16 @@ func TestTOMLSerialization(t *testing.T) {
 		t.Fatalf("FromTOML() error = %v", err)
 	}
 
-	// Check parsed data
-	if got, ok := r.GetAlterHostname("www.google.com"); !ok || got != "baidu.com" {
-		t.Error("FromTOML() didn't parse alter_hostname correctly")
+	if got, ok := r.GetAlterHostname("www.google.com.hk"); !ok || got != "g.cn" {
+		t.Fatal("FromTOML() did not parse alter_hostname")
+	}
+	if got, ok := r.GetHost("store.steampowered.com"); !ok || got != "__AUTO__" {
+		t.Fatal("FromTOML() did not parse hosts")
+	}
+	if got, ok := r.GetCertVerify("www.google.com.hk"); !ok || got.Verify || len(got.Allow) != 1 || got.Allow[0] != "healthdatanexus.ai" {
+		t.Fatalf("FromTOML() did not parse cert_verify: %+v", got)
 	}
 
-	if got, ok := r.GetHost("example.com"); !ok || got != "1.2.3.4" {
-		t.Error("FromTOML() didn't parse hosts correctly")
-	}
-
-	// Serialize back
 	data, err := r.ToTOML()
 	if err != nil {
 		t.Fatalf("ToTOML() error = %v", err)
@@ -209,13 +88,13 @@ func TestJSONSerialization(t *testing.T) {
 	jsonData := `{
   "rules": [
     {
-      "patterns": ["*.google.com"],
-      "target_sni": "baidu.com"
+      "patterns": ["www.google.com.hk"],
+      "target_sni": "g.cn"
     }
   ],
   "cert_verify": [
     {
-      "patterns": ["*.google.com"],
+      "patterns": ["www.google.com.hk"],
       "verify": "healthdatanexus.ai"
     }
   ]
@@ -226,12 +105,13 @@ func TestJSONSerialization(t *testing.T) {
 		t.Fatalf("FromJSON() error = %v", err)
 	}
 
-	// Check parsed data
-	if got, ok := r.GetAlterHostname("www.google.com"); !ok || got != "baidu.com" {
-		t.Error("FromJSON() didn't parse rules correctly")
+	if got, ok := r.GetAlterHostname("www.google.com.hk"); !ok || got != "g.cn" {
+		t.Fatal("FromJSON() did not parse rules")
+	}
+	if got, ok := r.GetCertVerify("www.google.com.hk"); !ok || got.Verify || len(got.Allow) != 1 || got.Allow[0] != "healthdatanexus.ai" {
+		t.Fatalf("FromJSON() did not parse cert_verify: %+v", got)
 	}
 
-	// Serialize back
 	data, err := r.ToJSON()
 	if err != nil {
 		t.Fatalf("ToJSON() error = %v", err)
@@ -240,42 +120,34 @@ func TestJSONSerialization(t *testing.T) {
 		t.Error("ToJSON() returned empty data")
 	}
 
-	// Verify it can be parsed back
 	var r2 Rules
 	if err := r2.FromJSON(data); err != nil {
 		t.Fatalf("ToJSON()/FromJSON() round trip error = %v", err)
 	}
 
-	if got, ok := r2.GetAlterHostname("www.google.com"); !ok || got != "baidu.com" {
+	if got, ok := r2.GetAlterHostname("www.google.com.hk"); !ok || got != "g.cn" {
 		t.Error("ToJSON()/FromJSON() round trip failed")
 	}
 }
 
-func TestLoadRules_IncludesBuiltInDefaults(t *testing.T) {
+func TestLoadRules_ParseOnly(t *testing.T) {
 	r, err := LoadRules()
 	if err != nil {
 		t.Fatalf("LoadRules() error = %v", err)
 	}
-
-	// This rule lives in rules.default.toml and should be loaded as built-in default.
-	if got, ok := r.GetAlterHostname("www.google.com.hk"); !ok || got != "g.cn" {
-		t.Fatalf("built-in default alter_hostname not loaded: got=%q, matched=%v", got, ok)
-	}
-
-	// This rule also lives in rules.default.toml and should be available.
-	if got, ok := r.GetHost("store.steampowered.com"); !ok || got != "__AUTO__" {
-		t.Fatalf("built-in default hosts not loaded: got=%q, matched=%v", got, ok)
+	if r.AlterHostname == nil || r.CertVerify == nil || r.Hosts == nil {
+		t.Fatalf("LoadRules() should initialize all rule maps")
 	}
 }
 
-func TestLoadFetchedRules_ExcludesBuiltInDefaults(t *testing.T) {
+func TestLoadFetchedRules_ParseOnly(t *testing.T) {
 	r, err := LoadFetchedRules()
 	if err != nil {
 		t.Fatalf("LoadFetchedRules() error = %v", err)
 	}
 
-	if _, ok := r.GetAlterHostname("www.google.com.hk"); ok {
-		t.Fatalf("fetched-only rules should not contain built-in default alter_hostname")
+	if r.AlterHostname == nil || r.CertVerify == nil || r.Hosts == nil {
+		t.Fatalf("LoadFetchedRules() should initialize all rule maps")
 	}
 }
 

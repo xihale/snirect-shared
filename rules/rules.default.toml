@@ -3,6 +3,7 @@
 
 [cert_verify]
 "*google.com" = "healthdatanexus.ai"
+"*google.com.hk" = "healthdatanexus.ai"
 "android.com" = ["*.api.dev.healthdatanexus.ai"]
 "ask.vrchat.com" = ["*.discourse.org"]
 "blogger.com" = ["*.api.dev.healthdatanexus.ai"]
